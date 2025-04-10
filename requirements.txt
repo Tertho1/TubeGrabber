@@ -1,4 +1,3 @@
-moviepy
+
 ffmpeg-python
-pydub
 yt-dlp
