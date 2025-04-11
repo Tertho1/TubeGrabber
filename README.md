@@ -2,6 +2,39 @@
 
 A versatile YouTube downloader application built with Python and Tkinter that allows you to download videos, audio, and playlists with an easy-to-use graphical interface.
 
+> **Educational Notice**: This application is created for educational purposes only. It demonstrates Python GUI development, threading, subprocess management, and media handling. Users should respect copyright laws and YouTube's Terms of Service when using this application. Only download content you have permission to access and use.
+
+## About TubeGrabber
+
+TubeGrabber is an educational Python project that demonstrates practical applications of several advanced programming concepts in a real-world context. This application showcases:
+
+### Technical Learning Aspects
+
+- **Modern Python Development**: Utilizing Python's object-oriented capabilities, file handling, and error management
+- **GUI Programming**: Implementation of responsive user interfaces with Tkinter and ttk
+- **Multithreading**: Managing concurrent operations while maintaining UI responsiveness
+- **Subprocess Management**: Properly handling external process execution and monitoring
+- **Media Processing**: Working with multimedia streams, formats, and conversion techniques
+- **Configuration Management**: Persistent settings storage and retrieval
+- **Progress Tracking**: Real-time feedback mechanisms for long-running operations
+
+### Educational Purpose
+
+This project was created as a learning tool to help understand complex programming concepts in an engaging way. It demonstrates how to integrate multiple technologies into a cohesive application:
+
+1. **yt-dlp** - For understanding API integration with third-party libraries
+2. **FFmpeg** - For learning media transcoding fundamentals
+3. **Tkinter** - For exploring desktop application development
+4. **Threading** - For implementing non-blocking operations
+
+### Responsible Use Notice
+
+This software is provided strictly for educational purposes. Users are responsible for complying with applicable laws and terms of service agreements when using this application. Always respect copyright and only download content you have permission to access and use.
+
+### For Students and Developers
+
+TubeGrabber serves as an excellent reference for intermediate Python programmers looking to build practical skills in desktop application development, media handling, and creating user-friendly interfaces. The codebase is structured to be readable and well-documented, making it an ideal learning resource.
+
 ## Features
 
 - **Single Video Download**: Download YouTube videos in various formats and qualities

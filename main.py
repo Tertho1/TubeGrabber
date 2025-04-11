@@ -7,6 +7,7 @@ import threading
 import time
 import re
 import json
+import sys
 
 # Constants for directories
 DEFAULT_DOWNLOAD_DIR = os.path.join(os.path.expanduser("~"), "Downloads", "TubeGrabber")
@@ -15,10 +16,40 @@ CONFIG_DIR = os.path.join(os.path.expanduser("~"), ".tubegrabber")
 CONFIG_FILE = os.path.join(CONFIG_DIR, "settings.json")
 
 
+def get_startup_info():
+    """Create startupinfo to hide console window on Windows"""
+    if os.name == "nt":  # Windows
+        startupinfo = subprocess.STARTUPINFO()
+        startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+        startupinfo.wShowWindow = 0  # SW_HIDE
+        return startupinfo
+    return None
+
+
 class TubeGrabberApp:
     def __init__(self, root):
         self.root = root
         self.root.title("TubeGrabber")
+
+        # Set the window icon
+        try:
+            if getattr(sys, 'frozen', False):
+                # Running in a bundle
+                application_path = sys._MEIPASS
+            else:
+                # Running in development
+                application_path = os.path.dirname(os.path.abspath(__file__))
+
+            icon_path = os.path.join(application_path, 'icon.ico')
+
+            if os.path.exists(icon_path):
+                self.root.iconbitmap(icon_path)
+            else:
+                print("Icon not found at:", icon_path)
+
+        except Exception as e:
+            print(f"Could not set window icon: {e}")
+
         self.root.geometry("900x600")
         self.root.minsize(800, 500)
 
@@ -1028,7 +1059,12 @@ def convert_video_to_audio(
         ]
 
         process = subprocess.Popen(
-            command, stderr=subprocess.PIPE, universal_newlines=True
+            command,
+            stderr=subprocess.PIPE,
+            stdout=subprocess.PIPE,  # Add stdout redirection
+            stdin=subprocess.PIPE,  # Add stdin redirection
+            universal_newlines=True,
+            startupinfo=get_startup_info(),  # Add this function call
         )
 
         # Regex to parse progress
