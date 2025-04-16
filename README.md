@@ -37,6 +37,9 @@ TubeGrabber serves as an excellent reference for intermediate Python programmers
 
 ## Features
 
+- **Video Search**: Search for YouTube videos directly within the application
+- **Playlist Search**: Find and browse YouTube playlists by keywords
+- **Search Results Preview**: View thumbnails and details before downloading
 - **Single Video Download**: Download YouTube videos in various formats and qualities
 - **Audio Extraction**: Extract audio from YouTube videos directly as MP3
 - **Playlist Support**: Download entire YouTube playlists with progress tracking
@@ -91,6 +94,21 @@ TubeGrabber serves as an excellent reference for intermediate Python programmers
    ```
 
 ## Usage
+
+## Searching for Videos
+
+1.Select "Search Videos" from the options panel
+2.Enter your search keywords in the search field
+3.Click "Search" to display matching videos
+4.Select a video from the results and proceed with download options
+
+## Searching for Playlists
+
+1.Select "Search Playlists" from the options panel
+2.Enter your search keywords in the search field
+3.Click "Search" to display matching playlists
+4.Select a playlist from the results to view its contents
+5.Choose download options for the selected playlist
 
 ### Downloading a Single Video
 
