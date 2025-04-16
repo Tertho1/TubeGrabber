@@ -148,7 +148,7 @@ TubeGrabber serves as an excellent reference for intermediate Python programmers
 - **Download Directory**: Change the default download location under File → Downloads → Set Download Directory
 - **Temp Directory**: Set a custom temporary directory under File → Downloads → Set Temp Directory
 - **Retry Settings**: Configure maximum retry attempts under Settings → Retry Settings
-- **Theme**: Toggle Dark Mode under Settings → Dark Mode
+- **Theme**: Toggle Dark Mode under Settings → Dark Mode.
 
 ## License
 
