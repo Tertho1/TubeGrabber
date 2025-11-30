@@ -9,6 +9,7 @@ import re
 import json
 import sys
 
+
 def setup_environment():
     if getattr(sys, "frozen", False):
         base_path = os.path.dirname(sys.executable)
@@ -20,12 +21,14 @@ def setup_environment():
         os.environ["TMP"] = temp_dir
         log_file = os.path.join(base_path, "tubegrabber.log")
 
+
 setup_environment()
 
 DEFAULT_DOWNLOAD_DIR = os.path.join(os.path.expanduser("~"), "Downloads", "TubeGrabber")
 TEMP_DIR = os.path.join(DEFAULT_DOWNLOAD_DIR, "temp")
 CONFIG_DIR = os.path.join(os.path.expanduser("~"), ".tubegrabber")
 CONFIG_FILE = os.path.join(CONFIG_DIR, "settings.json")
+
 
 def get_startup_info():
     if os.name == "nt":
@@ -34,6 +37,7 @@ def get_startup_info():
         startupinfo.wShowWindow = 0
         return startupinfo
     return None
+
 
 class TubeGrabberApp:
     def __init__(self, root):
@@ -47,11 +51,14 @@ class TubeGrabberApp:
             icon_path = os.path.join(application_path, "icon.ico")
             if os.path.exists(icon_path):
                 self.root.iconbitmap(default=icon_path)
-                if os.name == 'nt':
+                if os.name == "nt":
                     try:
                         import ctypes
-                        myappid = 'mycompany.tubegrabber.version1'
-                        ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(myappid)
+
+                        myappid = "mycompany.tubegrabber.version1"
+                        ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(
+                            myappid
+                        )
                     except:
                         pass
             else:
@@ -334,9 +341,7 @@ class TubeGrabberApp:
         downloads_menu.add_command(
             label="Set Temp Directory", command=self.select_temp_directory
         )
-        file_menu.add_cascade(
-            label="Downloads", menu=downloads_menu
-        )
+        file_menu.add_cascade(label="Downloads", menu=downloads_menu)
         file_menu.add_separator()
         file_menu.add_command(label="Exit", command=self.root.quit)
         menubar.add_cascade(label="File", menu=file_menu)
@@ -518,6 +523,7 @@ class TubeGrabberApp:
             self.active_download = True
             self.cancel_requested = False
             self.root.after(0, lambda: self.cancel_button.config(state="normal"))
+
             def progress_hook(d):
                 if self.cancel_requested:
                     raise Exception("Download cancelled by user")
@@ -558,6 +564,7 @@ class TubeGrabberApp:
                         100,
                         "Merging audio and video streams...",
                     )
+
             self.update_progress(0, "Starting video download...")
             filename = self.download_with_retry(
                 self.download_video,
@@ -606,6 +613,7 @@ class TubeGrabberApp:
                 "failed_items": 0,
                 "item_progress": 0,
             }
+
             def progress_hook(d):
                 if self.cancel_requested:
                     raise Exception("Download cancelled by user")
@@ -709,6 +717,7 @@ class TubeGrabberApp:
                         current_state["failed_items"] += 1
                         error_msg = d.get("error", "Unknown error")
                         print(f"Error downloading {filename}: {error_msg}")
+
             self.update_progress(0, "Starting playlist download...")
             self.download_with_retry(
                 download_playlist,
@@ -752,6 +761,7 @@ class TubeGrabberApp:
             self.active_download = True
             self.cancel_requested = False
             self.root.after(0, lambda: self.cancel_button.config(state="normal"))
+
             def progress_hook(d):
                 if self.cancel_requested:
                     raise Exception("Download cancelled by user")
@@ -793,6 +803,7 @@ class TubeGrabberApp:
                         95,
                         f"Extracting audio and converting to mp3...",
                     )
+
             self.update_progress(0, "Starting audio download...")
             filename = self.download_with_retry(
                 download_audio,
@@ -836,8 +847,10 @@ class TubeGrabberApp:
 
     def _convert_video_thread(self, path):
         try:
+
             def progress_hook(progress, text):
                 self.root.after(0, self.update_progress, progress, text)
+
             self.update_progress(0, "Starting conversion...")
             filename = self.download_with_retry(
                 convert_video_to_audio,
@@ -936,6 +949,7 @@ class TubeGrabberApp:
     def _search_thread(self, query, search_count, search_type):
         try:
             from urllib.parse import quote_plus
+
             if getattr(sys, "frozen", False):
                 ytdlp_path = os.path.join(sys._MEIPASS, "yt-dlp.exe")
             else:
@@ -984,6 +998,7 @@ class TubeGrabberApp:
                                 )
                                 if not playlist_id and "url" in video_data:
                                     import re
+
                                     match = re.search(
                                         r"list=([^&]+)", video_data["url"]
                                     )
@@ -991,6 +1006,7 @@ class TubeGrabberApp:
                                         playlist_id = match.group(1)
                                 if not playlist_id and "webpage_url" in video_data:
                                     import re
+
                                     match = re.search(
                                         r"list=([^&]+)", video_data["webpage_url"]
                                     )
@@ -1098,12 +1114,16 @@ class TubeGrabberApp:
         canvas.configure(yscrollcommand=scrollbar.set)
         canvas.pack(side="left", fill="both", expand=True)
         scrollbar.pack(side="right", fill="y")
+
         def configure_canvas(event):
             canvas_width = event.width
             canvas.itemconfig(canvas_window, width=canvas_width)
+
         canvas.bind("<Configure>", configure_canvas)
+
         def _on_mousewheel(event):
             canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
+
         canvas.bind_all("<MouseWheel>", _on_mousewheel)
         self.thumbnail_refs = []
         self.style.configure("Video.TFrame", relief="solid", borderwidth=1)
@@ -1125,6 +1145,7 @@ class TubeGrabberApp:
                 import requests
                 from PIL import Image, ImageTk
                 from io import BytesIO
+
                 response = requests.get(item["thumbnail"])
                 if response.status_code == 200:
                     img = Image.open(BytesIO(response.content))
@@ -1191,9 +1212,7 @@ class TubeGrabberApp:
                 except (ValueError, TypeError):
                     details_text = f"By: {item['uploader']}"
             else:
-                details_text = (
-                    f"By: {item['uploader']}"
-                )
+                details_text = f"By: {item['uploader']}"
             details_label = ttk.Label(info_frame, text=details_text, cursor="hand2")
             details_label.pack(anchor="w")
             details_label.bind(
@@ -1378,11 +1397,24 @@ class TubeGrabberApp:
         except Exception as e:
             print(f"Error cleaning up temp directory: {str(e)}")
 
+
 def move_to_final_location(temp_path, final_dir):
     filename = os.path.basename(temp_path)
     final_path = os.path.join(final_dir, filename)
     os.replace(temp_path, final_path)
     return final_path
+
+
+def resource_path(relative_path):
+    """Get absolute path to resource, works for dev and for PyInstaller"""
+    base_path = getattr(sys, "_MEIPASS", os.path.abspath("."))
+    return os.path.join(base_path, relative_path)
+
+
+# These paths ensure ffmpeg and ffprobe are bundled from ffmpeg/bin/ for PyInstaller portability
+ffmpeg_path = resource_path(os.path.join("ffmpeg", "bin", "ffmpeg.exe"))
+ffprobe_path = resource_path(os.path.join("ffmpeg", "bin", "ffprobe.exe"))
+
 
 def download_audio(url, output_path=DEFAULT_DOWNLOAD_DIR, progress_hook=None):
     try:
@@ -1400,7 +1432,12 @@ def download_audio(url, output_path=DEFAULT_DOWNLOAD_DIR, progress_hook=None):
             ],
             "retries": 3,
             "fragment_retries": 3,
-            "postprocessor_args": ["-write_xing", "0"],
+            "postprocessor_args": [
+                f"-ffmpeg_location",
+                ffmpeg_path,
+                "-write_xing",
+                "0",
+            ],
         }
         with YoutubeDL(ydl_opts) as ydl:
             info = ydl.extract_info(url, download=True)
@@ -1413,6 +1450,7 @@ def download_audio(url, output_path=DEFAULT_DOWNLOAD_DIR, progress_hook=None):
             if "f" in locals() and os.path.exists(f):
                 os.remove(f)
         raise RuntimeError(f"Audio download failed: {str(e)}")
+
 
 def download_playlist(
     url,
@@ -1443,16 +1481,24 @@ def download_playlist(
                     "preferredquality": "192",
                 }
             ]
-            ydl_opts["postprocessor_args"] = ["-write_xing", "0"]
+            ydl_opts["postprocessor_args"] = [
+                f"-ffmpeg_location",
+                ffmpeg_path,
+                "-write_xing",
+                "0",
+            ]
         else:
             ydl_opts["format"] = (
                 f"bestvideo[height<={get_quality_height(quality)}]+bestaudio/best"
             )
             ydl_opts["merge_output_format"] = "mp4"
+            ydl_opts["postprocessor_args"] = [f"-ffmpeg_location", ffmpeg_path]
+
         class CancellableYoutubeDL(YoutubeDL):
             def __init__(self, params, cancel_check_callback=None):
                 super().__init__(params)
                 self.cancel_check_callback = cancel_check_callback
+
             def extract_info(
                 self,
                 url,
@@ -1467,6 +1513,7 @@ def download_playlist(
                 return super().extract_info(
                     url, download, ie_key, extra_info, process, force_generic_extractor
                 )
+
         with CancellableYoutubeDL(ydl_opts, cancel_check) as ydl:
             ydl.download([url])
         for file in os.listdir(temp_dir):
@@ -1475,6 +1522,7 @@ def download_playlist(
             os.replace(temp_path, final_path)
     except Exception as e:
         raise RuntimeError(f"Playlist download failed: {str(e)}")
+
 
 def convert_video_to_audio(
     video_path, output_path=DEFAULT_DOWNLOAD_DIR, progress_hook=None
@@ -1490,7 +1538,7 @@ def convert_video_to_audio(
             temp_dir, os.path.splitext(video_filename)[0] + ".mp3"
         )
         cmd = [
-            "ffprobe",
+            ffprobe_path,
             "-v",
             "error",
             "-show_entries",
@@ -1502,7 +1550,7 @@ def convert_video_to_audio(
         result = subprocess.run(cmd, capture_output=True, text=True)
         duration = float(result.stdout.strip())
         command = [
-            "ffmpeg",
+            ffmpeg_path,
             "-i",
             video_path,
             "-q:a",
@@ -1541,8 +1589,10 @@ def convert_video_to_audio(
             os.remove(temp_audio)
         raise RuntimeError(f"Conversion failed: {str(e)}")
 
+
 def get_quality_height(quality):
     return {"best": 4320, "medium": 720, "low": 480}.get(quality.lower(), 720)
+
 
 def format_has_audio(format_id, url):
     with YoutubeDL({"quiet": True}) as ydl:
@@ -1551,6 +1601,7 @@ def format_has_audio(format_id, url):
             if fmt["format_id"] == format_id:
                 return fmt.get("acodec") != "none"
     return False
+
 
 if __name__ == "__main__":
     root = tk.Tk()
