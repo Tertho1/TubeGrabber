@@ -29,11 +29,12 @@ class TubeGrabberSettings(BaseSettings):
     )
     temp_dir: Optional[Path] = None  # Auto-computed if None
 
-    # Performance
+    # Performance — Phase 1.1: tuned for speed vs IP ban
     max_concurrent_downloads: int = Field(default=3, ge=1, le=10)
-    concurrent_fragments: int = Field(default=5, ge=1, le=16)
+    concurrent_fragments: int = Field(default=5, ge=1, le=16)  # cap 16 per AGENTS.md:101
     http_chunk_size: str = "10M"
-    max_retries: int = Field(default=3, ge=0, le=20)
+    max_retries: int = Field(default=10, ge=0, le=20)  # was 3 → 10 for YouTube 429 resilience
+    fragment_retries: int = Field(default=10, ge=0, le=20)
 
     # Speed limiting (0 = unlimited, in KB/s)
     speed_limit_kbps: int = Field(default=0, ge=0)
@@ -151,14 +152,14 @@ class ConfigManager:
 # Convenience functions for common paths
 def get_config_dir() -> Path:
     """Get the app config directory."""
-    return Path(user_config_dir("TubeGrabber", "TubeGrabber"))
+    return Path(user_config_dir("TubeGrabber", appauthor=False))
 
 
 def get_data_dir() -> Path:
     """Get the app data directory."""
-    return Path(user_data_dir("TubeGrabber", "TubeGrabber"))
+    return Path(user_data_dir("TubeGrabber", appauthor=False))
 
 
 def get_cache_dir() -> Path:
     """Get the app cache directory (for thumbnails, etc)."""
-    return Path(user_cache_dir("TubeGrabber", "TubeGrabber"))
+    return Path(user_cache_dir("TubeGrabber", appauthor=False))

@@ -67,6 +67,12 @@ class DownloadService:
             "format": quality,
             "paths": {"home": str(job_temp)},  # Download to per-job temp (D1)
             "outtmpl": {"default": filename},
+            "concurrent_fragment_downloads": 5,  # Phase 1.1: 5-8, cap 16 per AGENTS.md:101
+            "http_chunk_size": 10 * 1024 * 1024,  # 10M
+            "retries": 10,
+            "fragment_retries": 10,
+            "extractor_retries": 3,
+            "retry_sleep_functions": {"http": lambda n: 1 + n * 0.5},  # exp backoff for 429
         }
 
         self.ytdlp.extract_info(
@@ -106,6 +112,12 @@ class DownloadService:
             "paths": {"home": str(job_temp)},  # Download to per-job temp (D1)
             "outtmpl": {"default": filename},
             "merge_output_format": "mp4" if "+" in fmt else None,
+            "concurrent_fragment_downloads": 5,
+            "http_chunk_size": 10 * 1024 * 1024,
+            "retries": 10,
+            "fragment_retries": 10,
+            "extractor_retries": 3,
+            "retry_sleep_functions": {"http": lambda n: 1 + n * 0.5},
         }
         # Remove None options
         opts = {k: v for k, v in opts.items() if v is not None}
@@ -183,8 +195,12 @@ class DownloadService:
             "paths": {"home": str(job_temp)},  # Download to per-job temp (D1, D2)
             "outtmpl": {"default": "%(title)s.%(ext)s"},
             "progress_hooks": [hook],
-            "retries": 3,
-            "fragment_retries": 3,
+            "concurrent_fragment_downloads": 5,
+            "http_chunk_size": 10 * 1024 * 1024,
+            "retries": 10,
+            "fragment_retries": 10,
+            "extractor_retries": 3,
+            "retry_sleep_functions": {"http": lambda n: 1 + n * 0.5},
             "ignoreerrors": True,
             "skip_unavailable_fragments": True,
             "continue_dl": True,

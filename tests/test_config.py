@@ -9,11 +9,15 @@ def test_default_settings(tmp_path: Path):
     """Test that default settings are correctly initialized."""
     config_file = tmp_path / "settings.json"
     manager = ConfigManager(config_path=config_file)
+    # Isolate from real home legacy file
+    manager.legacy_config = tmp_path / "nonexistent_legacy.json"
+    manager.settings = manager._load()
     settings = manager.settings
 
     assert settings.max_concurrent_downloads == 3
     assert settings.concurrent_fragments == 5
-    assert settings.max_retries == 3
+    assert settings.max_retries == 10  # Phase 1.1: tuned to 10 for 429 resilience
+    assert settings.fragment_retries == 10
     assert settings.speed_limit_kbps == 0
     assert settings.theme == "system"
     assert not settings.clipboard_monitor
