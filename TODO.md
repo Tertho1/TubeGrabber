@@ -30,7 +30,7 @@
 
 **Goal:** Saturate link; queue >1 job; resume; speed control.
 
-- [ ] **1.1 Segmented fragments** — yt-dlp opts: `concurrent_fragments=5-8` (configurable cap 16), `http_chunk_size=10M`, `retries=10`, `fragment_retries=10`. Expose `app.py:256 _discover_ffmpeg` similarly for aria2 flag. Benchmark.
+- [x] **1.1 Segmented fragments** (2026-09-03, commit `a983add`) — `concurrent_fragments=5` (cap 16 `config.py:34`), `http_chunk_size=10M`, `retries=10`, `fragment_retries=10`, `extractor_retries=3` + exp backoff for `429` in `services/download_service.py:66,104,181`; `config.py:36` `max_retries 3→10`.
 - [ ] **1.2 Concurrent queue** — replace `app.py:53 active_download:bool` with `DownloadQueue` (`ThreadPoolExecutor` 3-5 workers, default 3). Model `Job {id, url, type, status, progress, speed, eta, output}`. Persist to `jobs.db` (SQLite). UI shows queue len.
 - [ ] **1.3 Resume & atomic IO** — per-job `.part` files, `continue_dl:true`, `nopart:false` explicit. On cancel/failure keep partial; on retry resume. Atomic move with dedup `title (1).mp4`, cross-device fallback. Cleanup task for stale `temp/`.
 - [ ] **1.4 Speed limiter** — token bucket per-job + global caps (KB/s). UI slider; persist. `yt-dlp` `throttledratelimit` & `ratelimit` options + `aria2 --max-overall-download-limit`.
