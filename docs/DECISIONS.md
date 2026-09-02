@@ -1,6 +1,23 @@
 # TubeGrabber — Architecture Decision Records (ADR)
 
 > Track why we chose a path, not just what. Update when a decision is superseded.
+> Index: [`docs/README.md`](README.md) | Truth: `PROJECT_PLAN.md` + `TODO.md` + `AGENTS.md:117`
+
+## Status table
+
+| ADR | Title | Status | Date | Commit |
+|-----|-------|--------|------|--------|
+| ADR-001 | Config `platformdirs` + `pydantic-settings` | Accepted | 2026-09-02 | `016f563` |
+| ADR-002 | UI CustomTkinter P1, Qt eval P2 | Accepted | 2026-09-02 | `docs/DECISIONS.md` |
+| ADR-003 | Chunk engine native `yt-dlp`/`httpx`, `aria2c` optional | Accepted | 2026-09-02 | `docs/DECISIONS.md` |
+| ADR-004 | Download isolation `TEMP_DIR/<job_id>/` | Accepted | 2026-09-02 | `bc3153a` |
+| ADR-005 | Single spec `TubeGrabber.spec` canonical | Accepted | 2026-09-03 | `8575c16` |
+| ADR-006 | Push/Commit guardrail `AGENTS.md:23` | Accepted | 2026-09-03 | `8575c16` |
+| ADR-007 | YouTube bot/429 + JS runtime mitigation | Proposed | 2026-09-03 | — (see smoke log `2026-09-03`) |
+
+### How to add an ADR
+
+Copy template: `## ADR-00N: Title` → Context / Decision / Consequences / Verify. Set Status `Proposed → Accepted → Superseded`. Link `path:line`.
 
 ---
 
@@ -71,8 +88,19 @@
 
 ---
 
+## ADR-007: YouTube bot/429 + JS runtime mitigation (Proposed)
+
+**Context:** `py -3 main.py` smoke `2026-09-03` hit `WARNING: [youtube] KvMY1uzSC1E: HTTP Error 429` + `No supported JavaScript runtime` + `ERROR: Sign in to confirm you're not a bot` (`adapters/ytdlp_adapter.py:42`). YouTube now requires `deno`/`node` for `nsig` and `cookies-from-browser` for authenticated extract (`yt-dlp/wiki/EJS`, `FAQ#cookies`). Our `retries=3` (`services/download_service.py:186`) insufficient.
+
+**Decision (proposed):** Bring `TODO.md 2.5` forward as patch: `adapters/ytdlp_adapter.py:17` add `retries=10, fragment_retries=10, extractor_retries=3, sleep_interval_requests=1`, `js_runtimes: {"deno": {}}` auto-detect, pass `cookies`/`cookiesfrombrowser` from `config.py:51` `TubeGrabberSettings` (stored via `keyring`/`platformdirs`). UI `File → Import cookies.txt` (`app.py:304` menu) + `Settings → Browser cookies` dropdown. Map `ExtractionError` → toast `Sign-in required — import cookies` (`app.py:794`).
+
+**Consequences:** Unauthenticated YouTube will still 429 without JS/cookies; with `deno` + `cookies-from-browser chrome` smoke passes. No telemetry added.
+
+---
+
 ## Open decisions (Phase 1+)
 
-- Speed limiter token-bucket implementation (per-job vs global caps)
+- Speed limiter token-bucket (per-job vs global caps)
 - Queue persistence `jobs.db` schema (SQLite vs `sqlalchemy`)
 - Thumbnail cache `user_cache_dir/Thumbnails` vs `thumbnails/`
+- Auth vault UI placement (Settings tab vs toolbar badge)

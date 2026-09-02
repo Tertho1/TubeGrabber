@@ -67,7 +67,7 @@ Any agent touching downloads must acknowledge these or refuse to add features:
 
 ## 5) Architecture Constraints
 
-- **Layers:** `UI (app.py)` → `Services` → `Adapters (ytdlp_adapter.py:13, ffmpeg_adapter.py:12)` → external (`yt-dlp`, `ffmpeg/aria2`). UI never calls `yt_dlp.YoutubeDL` directly except via adapter (exception `app.py:367` format fetch — migrate it).
+- **Layers:** `UI (app.py)` → `Services` → `Adapters (ytdlp_adapter.py:13, ffmpeg_adapter.py:12)` → external (`yt-dlp`, `ffmpeg/aria2`). UI never calls `yt_dlp.YoutubeDL` directly except via adapter (format fetch now `app.py:353` via `YtDlpAdapter`; health check `app.py:769` direct use allowed).
 - **Error flow:** Raise domain errors (`errors.py:4 TubeGrabberError` hierarchy) in services; UI maps via `app.py:794 _handle_error`. Don't `raise RuntimeError` in services (`downloaders.py:37` does — fix to domain errors).
 - **Events:** `events.py:6 EventBus` is UI-marshaling only; publishers (`DownloadService:38`) publish, subscribers (`app.py:721 _wire_event_subscriptions`) do `root.after(0, ...)`. Never call `messagebox` from service thread.
 - **Config:** One manager. Prefer `platformdirs` for paths. Migration must preserve existing `~/.tubegrabber/settings.json` or `CONFIG_FILE:11`.
@@ -107,6 +107,7 @@ Any agent touching downloads must acknowledge these or refuse to add features:
 
 - When you close a `TODO.md` item, update its checkbox `- [x]` + date + PR link.
 - Keep `PROJECT_PLAN.md`, `TODO.md`, this file in sync — if you discover new debt, add to `TODO.md` Phase 0.
+- Keep `docs/` in sync: `docs/DECISIONS.md` ADR status table + `docs/README.md` index must reflect any new ADR or path change.
 - README `Requirements` section must match `requirements.txt` pins.
 
 ---
