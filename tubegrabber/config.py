@@ -69,7 +69,7 @@ class ConfigManager:
         if config_path:
             self.config_file = Path(config_path)
         else:
-            config_dir = Path(user_config_dir("TubeGrabber", "TubeGrabber"))
+            config_dir = Path(user_config_dir("TubeGrabber", appauthor=False))
             config_dir.mkdir(parents=True, exist_ok=True)
             self.config_file = config_dir / "settings.json"
 

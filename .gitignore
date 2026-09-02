@@ -30,7 +30,7 @@ MANIFEST
 #  Usually these files are written by a python script from a template
 #  before PyInstaller builds the exe, so as to inject date/other infos into it.
 *.manifest
-*.spec
+# Note: TubeGrabber.spec is tracked as the canonical build spec
 
 # Installer logs
 pip-log.txt
@@ -168,6 +168,7 @@ dist/
 
 # FFmpeg binaries (usually downloaded/installed separately)
 ffmpeg/
+ffmpeg_bundle/
 
 # Downloaded content and temporary files
 downloads/

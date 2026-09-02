@@ -20,6 +20,7 @@
 4.  **One concern per commit.** No mixing of refactor + feature + spec change in one commit. Keep diffs reviewable (<300 LoC).
 5.  **No secrets in repo.** No cookies, tokens, keys, signed binaries credentials. Use OS `keyring` or `~/.tubegrabber/secrets` git-ignored and documented in `security.md`.
 6.  **No silent data loss.** `utils.py:7 move_to_final_location` must never overwrite user data silently — dedup or prompt. Enforce before changing IO.
+7.  **No push/commit without explicit owner approval.** No agent (human or AI) may `git commit`, `git push`, `gh pr create`, `git tag` or publish releases without the owner's direct instruction in this conversation. Local edits and `git diff` are allowed; pushing to `origin` is blocked. If you need a commit for checkpointing, ask first and use `draft` branch only.
 
 ---
 
@@ -47,6 +48,7 @@ Any agent touching downloads must acknowledge these or refuse to add features:
 | Edit `main2.py` for new features | Divergent codebase | Archive to `legacy/` and edit `tubegrabber/*` |
 | Mass-rename files or change `DEFAULT_DOWNLOAD_DIR` default path silently | Breaks user data | Migration step + changelog + setting |
 | Commit `dist/`, `build/`, `ffmpeg/` binaries, `*.log`, `downloads/` | Bloat + leak | Ensure `.gitignore` covers it; use release artifacts |
+| Push/commit/tag/PR without owner go-ahead | Violates §1.7 approval gate | Stage locally, show `git diff`, ask for `git push` explicitly |
 | Force-push, rewrite git history, skip hooks | Irreversible | Ask owner |
 | Use `Write` to overwrite `PROJECT_PLAN.md`/`AGENTS.md`/`TODO.md` without explicit request | Source of truth | Propose diff via `Edit` with rationale |
 

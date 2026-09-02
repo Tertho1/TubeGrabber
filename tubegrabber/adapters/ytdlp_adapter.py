@@ -52,4 +52,8 @@ class YtDlpAdapter:
         self, info: Dict[str, Any], template: str = "%(title)s.%(ext)s"
     ) -> str:
         with yt_dlp.YoutubeDL({"quiet": True}) as ydl:
-            return ydl.prepare_filename(info).replace(".webm", ".mp4")
+            name = ydl.prepare_filename(info)
+            # Only adjust known yt-dlp webm passthrough quirk: keep extension
+            # as-is, but normalize leading/trailing spaces and illegal chars
+            # handled downstream in utils.sanitize_filename
+            return name

@@ -69,6 +69,7 @@ class TubeGrabberApp:
             self.event_bus,
             Path(self.download_dir.get()),
             logger=self.logger,
+            temp_base=Path(self.temp_dir.get()),
         )
         self.search_service = SearchService(
             self.ytdlp_adapter, self.event_bus, logger=self.logger
@@ -352,25 +353,41 @@ class TubeGrabberApp:
             messagebox.showerror("Error", "Enter a URL")
             return
         self.update_progress(text="Fetching formats...")
-        try:
-            with YoutubeDL({"quiet": True}) as ydl:
-                info = ydl.extract_info(url, download=False)
+        # Disable combo while fetching
+        self.format_combobox["values"] = ["Loading..."]
+
+        def worker():
+            try:
+                info = self.ytdlp_adapter.extract_info(url, download=False)
                 formats = [
                     f for f in info.get("formats", []) if f.get("vcodec") != "none"
                 ]
-            if not formats:
-                messagebox.showerror("Error", "No video formats")
-                return
-            self.video_formats = formats
-            self.format_combobox["values"] = [
-                f"{f['format_id']}: {f.get('format_note','')} ({f.get('ext')}) - {f.get('resolution','N/A')}"
-                for f in formats
-            ]
-            self.format_combobox.current(0)
-            self.update_progress(text="Formats ready")
-        except Exception as e:
-            messagebox.showerror("Error", f"Format fetch failed: {e}")
-            self.update_progress(text="Ready")
+
+                def on_done():
+                    if not formats:
+                        messagebox.showerror("Error", "No video formats")
+                        self.format_combobox["values"] = []
+                        self.update_progress(text="Ready")
+                        return
+                    self.video_formats = formats
+                    self.format_combobox["values"] = [
+                        f"{f['format_id']}: {f.get('format_note','')} ({f.get('ext')}) - {f.get('resolution','N/A')}"
+                        for f in formats
+                    ]
+                    self.format_combobox.current(0)
+                    self.update_progress(text="Formats ready")
+
+                self.root.after(0, on_done)
+            except Exception as e:
+                self.logger.exception("Format fetch failed for %s", url)
+
+                def on_error():
+                    messagebox.showerror("Error", f"Format fetch failed: {e}")
+                    self.update_progress(text="Ready")
+
+                self.root.after(0, on_error)
+
+        threading.Thread(target=worker, daemon=True).start()
 
     def download_single_video(self):
         url = self.video_url_entry.get().strip()

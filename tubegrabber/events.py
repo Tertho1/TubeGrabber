@@ -1,6 +1,7 @@
 """Simple event bus for decoupled progress & status notifications."""
 from __future__ import annotations
 
+import logging
 from typing import Callable, Dict, List, Any
 
 class EventBus:
@@ -15,5 +16,6 @@ class EventBus:
             try:
                 cb(payload)
             except Exception:
-                # swallow to avoid cascading failures; could log
-                pass
+                logging.getLogger("tubegrabber").exception(
+                    "Event handler failed for %s", event
+                )

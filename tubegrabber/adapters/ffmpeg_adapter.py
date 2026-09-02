@@ -6,6 +6,7 @@ import subprocess
 from pathlib import Path
 from typing import List
 
+from ..environment import get_startup_info
 from ..errors import ConversionError
 
 
@@ -20,7 +21,11 @@ class FFmpegAdapter:
             self.logger.debug("Running ffmpeg: %s", " ".join(cmd))
         try:
             result = subprocess.run(
-                cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True
+                cmd,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                startupinfo=get_startup_info(),
             )
         except Exception as e:
             if self.logger:
