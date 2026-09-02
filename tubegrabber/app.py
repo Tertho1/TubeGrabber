@@ -30,6 +30,7 @@ from .adapters.ytdlp_adapter import YtDlpAdapter
 from .adapters.ffmpeg_adapter import FFmpegAdapter
 from .services.download_service import DownloadService
 from .services.search_service import SearchService
+from .services.queue_service import DownloadQueue
 
 
 class TubeGrabberApp:
@@ -53,11 +54,20 @@ class TubeGrabberApp:
         self.video_formats = []
         self.download_dir = tk.StringVar(value=str(self.config.settings.download_dir))
         self.temp_dir = tk.StringVar(value=str(self.config.settings.get_temp_dir()))
-        self.active_download = False
         self.cancel_requested = False
+        # active_download is now a property (see below) delegating to download_queue
 
         # Event bus
         self.event_bus = EventBus()
+
+        # Concurrent queue (Phase 1.2: replaces single active_download gate)
+        self.download_queue = DownloadQueue(
+            max_workers=self.config.settings.max_concurrent_downloads,
+            event_bus=self.event_bus,
+            logger=self.logger,
+        )
+        # Keep legacy flag for UI state; queue is source of truth
+        self._queue_legacy_active = False
 
         # Adapters & Services
         ffmpeg_exe = self._discover_ffmpeg()
@@ -103,6 +113,15 @@ class TubeGrabberApp:
         self.current_option.set("search_videos")
         self.show_input_fields("search_videos")
         self.create_directory_structure()
+
+    @property
+    def active_download(self) -> bool:  # Phase 1.2: queue is source of truth
+        return getattr(self, "download_queue", None) is not None and self.download_queue.has_active
+
+    @active_download.setter
+    def active_download(self, value: bool) -> None:
+        # Legacy compatibility — ignore, queue tracks state
+        pass
 
     # ----------------- Persistence -----------------
     def load_settings(self):
@@ -398,9 +417,10 @@ class TubeGrabberApp:
             fmt_id = self.video_formats[idx]["format_id"] if idx >= 0 else None
         except Exception:
             fmt_id = None
-        threading.Thread(
-            target=self._video_thread, args=(url, fmt_id), daemon=True
-        ).start()
+        # Phase 1.2: via queue (3-5 workers) instead of single thread
+        self.download_queue.submit(
+            lambda: self._video_thread(url, fmt_id), url=url, kind="video"
+        )
 
     def _video_thread(self, url, fmt_id):
         try:
@@ -415,7 +435,11 @@ class TubeGrabberApp:
 
     def download_audio(self):
         url = self.audio_url_entry.get().strip()
-        threading.Thread(target=self._audio_thread, args=(url,), daemon=True).start()
+        if not url:
+            return
+        self.download_queue.submit(
+            lambda: self._audio_thread(url), url=url, kind="audio"
+        )
 
     def _audio_thread(self, url):
         try:
@@ -430,16 +454,24 @@ class TubeGrabberApp:
 
     def download_playlist(self):
         url = self.playlist_url_entry.get().strip()
+        if not url:
+            return
         quality = self.playlist_quality_combobox.get().lower()
-        threading.Thread(
-            target=self._playlist_thread, args=(url, quality, False), daemon=True
-        ).start()
+        self.download_queue.submit(
+            lambda: self._playlist_thread(url, quality, False),
+            url=url,
+            kind="playlist",
+        )
 
     def download_playlist_audio(self):
         url = self.playlist_audio_url_entry.get().strip()
-        threading.Thread(
-            target=self._playlist_thread, args=(url, "best", True), daemon=True
-        ).start()
+        if not url:
+            return
+        self.download_queue.submit(
+            lambda: self._playlist_thread(url, "best", True),
+            url=url,
+            kind="playlist_audio",
+        )
 
     def _playlist_thread(self, url, quality, audio_only):
         try:
@@ -457,7 +489,11 @@ class TubeGrabberApp:
 
     def convert_video(self):
         path = self.video_file_entry.get().strip()
-        threading.Thread(target=self._convert_thread, args=(path,), daemon=True).start()
+        if not path:
+            return
+        self.download_queue.submit(
+            lambda: self._convert_thread(path), url=path, kind="convert"
+        )
 
     def _convert_thread(self, path):
         try:
@@ -651,21 +687,26 @@ class TubeGrabberApp:
         self.root.update_idletasks()
 
     def _begin_download(self):
-        self.active_download = True
         self.cancel_requested = False
         self.cancel_button.config(state="normal")
 
     def _end_download(self):
-        self.active_download = False
         self.cancel_requested = False
-        self.cancel_button.config(state="disabled")
-        self.update_progress(0, "Ready")
+        # Queue is source of truth — only clear UI when idle
+        if not self.download_queue.has_active:
+            self.cancel_button.config(state="disabled")
+            self.update_progress(0, "Ready")
+        else:
+            self.update_progress(
+                text=f"Queue: {self.download_queue.active_count} active, {self.download_queue.queued_count} queued"
+            )
 
     def cancel_download(self):
-        if self.active_download:
+        # Cancel via queue + service (Phase 1.2: concurrent)
+        if self.download_queue.has_active:
             self.cancel_requested = True
-            # propagate cancellation to service
             self.download_service.cancel()
+            self.download_queue.cancel_all()
             self.update_progress(text="Cancelling...")
 
     # ----------------- Misc -----------------
@@ -721,6 +762,11 @@ class TubeGrabberApp:
 
     def on_closing(self):
         self.save_settings()
+        try:
+            if hasattr(self, "download_queue"):
+                self.download_queue.shutdown(wait=False)
+        except Exception:
+            pass
         self.root.destroy()
 
     # ----------------- Internal wiring -----------------
