@@ -31,7 +31,7 @@
 **Goal:** Saturate link; queue >1 job; resume; speed control.
 
 - [x] **1.1 Segmented fragments** (2026-09-03, commit `a983add`) — `concurrent_fragments=5` (cap 16 `config.py:34`), `http_chunk_size=10M`, `retries=10`, `fragment_retries=10`, `extractor_retries=3` + exp backoff for `429` in `services/download_service.py:66,104,181`; `config.py:36` `max_retries 3→10`.
-- [ ] **1.2 Concurrent queue** — replace `app.py:53 active_download:bool` with `DownloadQueue` (`ThreadPoolExecutor` 3-5 workers, default 3). Model `Job {id, url, type, status, progress, speed, eta, output}`. Persist to `jobs.db` (SQLite). UI shows queue len.
+- [x] **1.2 Concurrent queue** (2026-09-03, commit `dfd2f7e`) — replaced `app.py:53 active_download:bool` with `services/queue_service.py` `DownloadQueue` (`ThreadPoolExecutor` 3 workers, cap 10) + `Job{id,url,kind,status,progress,speed,eta}`. Routes `download_*` via `queue.submit`, `active_download` now property `queue.has_active`, `on_closing` shutdown, `tests/test_queue.py` 3/3 pass. SQLite `jobs.db` persistence deferred to 1.3.
 - [ ] **1.3 Resume & atomic IO** — per-job `.part` files, `continue_dl:true`, `nopart:false` explicit. On cancel/failure keep partial; on retry resume. Atomic move with dedup `title (1).mp4`, cross-device fallback. Cleanup task for stale `temp/`.
 - [ ] **1.4 Speed limiter** — token bucket per-job + global caps (KB/s). UI slider; persist. `yt-dlp` `throttledratelimit` & `ratelimit` options + `aria2 --max-overall-download-limit`.
 - [ ] **1.5 ffmpeg passthrough** — in `FFmpegAdapter:12` use `-c copy` when merging same codec; only re-encode for mp3. Avoid double transcode.
