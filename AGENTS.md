@@ -83,6 +83,7 @@ Any agent touching downloads must acknowledge these or refuse to add features:
 - **Tests:** New service logic needs `pytest` unit test with mocked `YtDlpAdapter`/`FFmpegAdapter`. Aim ≥60% on `services/` + `adapters/`. No manual QA-only merges.
 - **Logging:** Use `logging_utils.py:12` logger, never `print`. Don't log URLs with tokens.
 - **Commits:** Conventional `feat:`, `fix:`, `refactor:`, `docs:`, `build:`; reference `TODO.md` item ID.
+- **Phase-gate testing (mandatory):** After **every** phase DoD (`TODO.md:25,41,57,74,89`), agent must act as an impartial real tester — test like a user, not the author. Run **every possible** check: `ruff`, `mypy --strict`, `pytest -q` (≥60% on `services/`+`adapters/`), `bandit -r tubegrabber`, `pip-audit`, `py -3 main.py` smoke (1 video + 1 audio + 1 playlist search + 1 `fetch_video_formats`), `ffmpeg -version` + `yt-dlp --version`, 10-site matrix when universal, queue 3-concurrent + cancel/resume, and file-system checks (no `build/dist/ffmpeg` committed, `TubeGrabber.spec` builds, `downloads/` dedup `title (1).mp4`, cross-device `shutil.move`). Be impartial to result — report failures, `429`/bot, hangs, and performance honestly; fix or file debt to `TODO.md Phase 0` before claiming phase complete. No phase is “done” without this evidence.
 
 ---
 
