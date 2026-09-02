@@ -1,4 +1,14 @@
-requests
-yt-dlp
-ffmpeg-python
-pydub
+# Runtime dependencies — pinned for reproducibility (TODO 0.8)
+# Core
+yt-dlp==2026.8.19
+requests==2.34.2
+# Config / platform
+platformdirs==4.11.7
+pydantic==2.13.5
+pydantic-settings==2.15.0
+# Media / auth (future use)
+Pillow==12.3.0
+keyring==25.7.0
+# Removed: ffmpeg-python, pydub — unused (FFmpeg via subprocess/FFmpegAdapter)
+# Dev (install via pip install -r requirements-dev.txt if needed):
+# pytest==9.1.1 ruff mypy bandit pip-audit
