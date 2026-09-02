@@ -12,7 +12,6 @@ import tkinter as tk
 from tkinter import ttk, messagebox, filedialog
 from yt_dlp import YoutubeDL
 
-from .environment import DEFAULT_DOWNLOAD_DIR, TEMP_DIR, CONFIG_FILE, CONFIG_DIR
 from .environment import setup_environment, get_startup_info
 from .utils import format_has_audio
 
@@ -24,7 +23,7 @@ from .errors import (
     ConversionError,
     ExtractionError,
 )
-from .config import ConfigManager
+from .config import ConfigManager, get_config_dir
 from .logging_utils import setup_logging
 from .events import EventBus
 from .adapters.ytdlp_adapter import YtDlpAdapter
@@ -42,20 +41,20 @@ class TubeGrabberApp:
         self.root.minsize(800, 500)
         self.root.protocol("WM_DELETE_WINDOW", self.on_closing)
 
+        # Config & Logging (load first)
+        self.config = ConfigManager()
+        self.logger = setup_logging(get_config_dir())
+
         # State
         self.current_option = tk.StringVar()
         self.download_progress = tk.DoubleVar()
-        self.dark_mode = tk.BooleanVar(value=False)
-        self.max_retries = tk.IntVar(value=3)
+        self.dark_mode = tk.BooleanVar(value=self.config.settings.dark_mode)
+        self.max_retries = tk.IntVar(value=self.config.settings.max_retries)
         self.video_formats = []
-        self.download_dir = tk.StringVar(value=DEFAULT_DOWNLOAD_DIR)
-        self.temp_dir = tk.StringVar(value=TEMP_DIR)
+        self.download_dir = tk.StringVar(value=str(self.config.settings.download_dir))
+        self.temp_dir = tk.StringVar(value=str(self.config.settings.get_temp_dir()))
         self.active_download = False
         self.cancel_requested = False
-
-        # Config & Logging
-        self.config = ConfigManager(Path(CONFIG_FILE))
-        self.logger = setup_logging(Path(CONFIG_DIR))
 
         # Event bus
         self.event_bus = EventBus()
@@ -106,30 +105,20 @@ class TubeGrabberApp:
 
     # ----------------- Persistence -----------------
     def load_settings(self):
-        try:
-            if os.path.exists(CONFIG_FILE):
-                with open(CONFIG_FILE, "r") as f:
-                    data = json.load(f)
-                    self.download_dir.set(
-                        data.get("download_dir", self.download_dir.get())
-                    )
-                    self.temp_dir.set(data.get("temp_dir", self.temp_dir.get()))
-                    self.dark_mode.set(data.get("dark_mode", False))
-                    self.max_retries.set(data.get("max_retries", 3))
-        except Exception as e:
-            print("Load settings error:", e)
+        """Load settings from ConfigManager (already loaded in __init__)."""
+        # Settings already loaded during ConfigManager init
+        # Just ensure UI reflects them (already done in __init__)
+        pass
 
     def save_settings(self):
+        """Save current UI state back to config."""
         try:
-            os.makedirs(CONFIG_DIR, exist_ok=True)
-            data = {
-                "download_dir": self.download_dir.get(),
-                "temp_dir": self.temp_dir.get(),
-                "dark_mode": self.dark_mode.get(),
-                "max_retries": self.max_retries.get(),
-            }
-            with open(CONFIG_FILE, "w") as f:
-                json.dump(data, f, indent=2)
+            self.config.settings.download_dir = Path(self.download_dir.get())
+            self.config.settings.temp_dir = Path(self.temp_dir.get())
+            self.config.settings.dark_mode = self.dark_mode.get()
+            self.config.settings.theme = "dark" if self.dark_mode.get() else "light"
+            self.config.settings.max_retries = self.max_retries.get()
+            self.config.save()
         except Exception as e:
             messagebox.showerror("Error", f"Failed to save settings: {e}")
 
