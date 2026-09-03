@@ -46,12 +46,40 @@ class DownloadService:
             raise DownloadCancelled("User cancelled")
         self.event_bus.publish("download.progress", data)
 
-    def _get_job_temp_dir(self) -> Path:
-        """Create per-job temp directory for isolated staging (D1)."""
-        job_id = uuid.uuid4().hex[:8]
+    def _get_job_temp_dir(self, url: Optional[str] = None) -> Path:
+        """Create per-job temp directory for isolated staging (D1).
+
+        Phase 1.3: deterministic per-URL for resume (keeps .part), fallback to uuid.
+        """
+        if url:
+            import hashlib
+
+            job_id = hashlib.md5(url.encode("utf-8")).hexdigest()[:12]
+        else:
+            job_id = uuid.uuid4().hex[:8]
         job_temp = self.temp_base / job_id
         job_temp.mkdir(parents=True, exist_ok=True)
         return job_temp
+
+    def cleanup_stale_temp(self, max_age_hours: int = 24) -> int:
+        """Remove job temp dirs older than max_age_hours. Returns count removed."""
+        import time
+
+        if not self.temp_base.exists():
+            return 0
+        now = time.time()
+        removed = 0
+        for child in self.temp_base.iterdir():
+            if not child.is_dir():
+                continue
+            try:
+                age = now - child.stat().st_mtime
+                if age > max_age_hours * 3600:
+                    shutil.rmtree(child, ignore_errors=True)
+                    removed += 1
+            except Exception:
+                continue
+        return removed
 
     def download_audio(self, url: str, quality: str = "bestaudio/best") -> Path:
         """Download audio with per-job staging."""
@@ -61,7 +89,7 @@ class DownloadService:
             raise DownloadCancelled("User cancelled")
 
         filename = self.ytdlp.build_filename(info)
-        job_temp = self._get_job_temp_dir()
+        job_temp = self._get_job_temp_dir(url)  # deterministic for resume (1.3)
 
         opts = {
             "format": quality,
@@ -73,6 +101,11 @@ class DownloadService:
             "fragment_retries": 10,
             "extractor_retries": 3,
             "retry_sleep_functions": {"http": lambda n: 1 + n * 0.5},  # exp backoff for 429
+            "continuedl": True,  # 1.3: explicit resume
+            "continue_dl": True,  # alias for compat
+            "nopart": False,  # keep .part for resume
+            "overwrites": False,  # atomic dedup via move_to_final_location
+            "nooverwrites": True,
         }
 
         self.ytdlp.extract_info(
@@ -100,7 +133,7 @@ class DownloadService:
             raise DownloadCancelled("User cancelled")
 
         filename = self.ytdlp.build_filename(info)
-        job_temp = self._get_job_temp_dir()
+        job_temp = self._get_job_temp_dir(url)  # deterministic for resume
 
         fmt = format_id or "best"
         # Check if format has audio using pre-fetched info (D4)
@@ -118,6 +151,11 @@ class DownloadService:
             "fragment_retries": 10,
             "extractor_retries": 3,
             "retry_sleep_functions": {"http": lambda n: 1 + n * 0.5},
+            "continuedl": True,
+            "continue_dl": True,
+            "nopart": False,
+            "overwrites": False,
+            "nooverwrites": True,
         }
         # Remove None options
         opts = {k: v for k, v in opts.items() if v is not None}
@@ -166,7 +204,7 @@ class DownloadService:
         Fixes D2: Scopes file enumeration to job's temp dir, not entire output_dir.
         """
         self.cancelled = False
-        job_temp = self._get_job_temp_dir()
+        job_temp = self._get_job_temp_dir(url)  # deterministic for resume
 
         # Determine format string and postprocessors
         if audio_only:
@@ -201,26 +239,29 @@ class DownloadService:
             "fragment_retries": 10,
             "extractor_retries": 3,
             "retry_sleep_functions": {"http": lambda n: 1 + n * 0.5},
+            "continuedl": True,
+            "continue_dl": True,
+            "nopart": False,
+            "overwrites": False,
             "ignoreerrors": True,
             "skip_unavailable_fragments": True,
-            "continue_dl": True,
             "nooverwrites": True,
         }
         if postprocessors:
             opts["postprocessors"] = postprocessors
             opts["postprocessor_args"] = post_args
 
-        # Execute download
+        # Execute download — keep .part on cancel/failure for resume (1.3)
         self.event_bus.publish("download.playlist.start", url)
         try:
             self.ytdlp.extract_info(url, download=True, **opts)
         except DownloadCancelled:
             self.event_bus.publish("download.playlist.cancelled", url)
-            shutil.rmtree(job_temp, ignore_errors=True)
+            # keep job_temp/.part for resume, not deleted
             raise
         except Exception as e:
             self.event_bus.publish("download.playlist.error", str(e))
-            shutil.rmtree(job_temp, ignore_errors=True)
+            # keep .part for resume
             raise
 
         # Collect resulting files from job's temp dir (D2 fix: scope to job_temp)
