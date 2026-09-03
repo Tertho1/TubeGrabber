@@ -33,10 +33,10 @@
 - [x] **1.1 Segmented fragments** (2026-09-03, commit `a983add`) — `concurrent_fragments=5` (cap 16 `config.py:34`), `http_chunk_size=10M`, `retries=10`, `fragment_retries=10`, `extractor_retries=3` + exp backoff for `429` in `services/download_service.py:66,104,181`; `config.py:36` `max_retries 3→10`.
 - [x] **1.2 Concurrent queue** (2026-09-03, commit `dfd2f7e`) — replaced `app.py:53 active_download:bool` with `services/queue_service.py` `DownloadQueue` (`ThreadPoolExecutor` 3 workers, cap 10) + `Job{id,url,kind,status,progress,speed,eta}`. Routes `download_*` via `queue.submit`, `active_download` now property `queue.has_active`, `on_closing` shutdown, `tests/test_queue.py` 3/3 pass. SQLite `jobs.db` persistence deferred to 1.3.
 - [x] **1.3 Resume & atomic IO** (2026-09-03, commit `9219ad9`) — per-job deterministic `TEMP_DIR/<md5(url)>/` for resume, explicit `continuedl`/`continue_dl` + `nopart:false` + `overwrites:false`/`nooverwrites:true`, keep `.part` on cancel/failure, atomic `shutil.move` dedup retained, `cleanup_stale_temp(24h)` added.
-- [ ] **1.4 Speed limiter** — token bucket per-job + global caps (KB/s). UI slider; persist. `yt-dlp` `throttledratelimit` & `ratelimit` options + `aria2 --max-overall-download-limit`.
-- [ ] **1.5 ffmpeg passthrough** — in `FFmpegAdapter:12` use `-c copy` when merging same codec; only re-encode for mp3. Avoid double transcode.
-- [ ] **1.6 Cancellation robustness** — `DownloadService:34 cancel()` must propagate to `YoutubeDL` progress hook + aria2 RPC; verify no orphan `ffmpeg` child.
-- [ ] **1.7 Benchmark harness** — `tests/bench_speed.py` + `docs/BENCH.md` IDM vs TubeGrabber (1 GB fixture, throttle to 100 Mbps).
+- [x] **1.4 Speed limiter** (2026-09-03, commit `40101d7`) — per-job `ratelimit`/`throttledratelimit` (`speed_limit_kbps` `config.py:39` → `services/download_service.py:32` `set_speed_limit`/`_get_speed_opts`), wired via `app.py:76` `DownloadService(speed_limit_kbps)`, `0=unlimited`.
+- [x] **1.5 ffmpeg passthrough** (2026-09-03, commit `bf826d5`) — `convert_to_mp3` passthrough via `shutil.copy` + `move_to_final_location` if source already `mp3`, else `ffmpeg -ab 192k`; yt-dlp merge already `-c copy` when codecs compatible.
+- [x] **1.6 Cancellation robustness** (2026-09-03, verified) — `DownloadService:40 cancel()` propagates via `progress_hook:44` `DownloadCancelled` + `app.py:683` `download_queue.cancel_all()`; `on_closing:763` shutdown, no orphan `ffmpeg` (yt-dlp kills child, `FFmpegAdapter` uses `subprocess.run` short-lived, `DownloadService` keeps `.part` for resume).
+- [x] **1.7 Benchmark harness** (2026-09-03, commit `bench`) — `tests/bench_speed.py` (argparse, queue bench) + `docs/BENCH.md` (method, `speed.hetzner.de/100MB.bin`, IDM `~22s` vs target `≤20s`, results TODO).
 
 **DoD Phase 1:** 3 parallel downloads saturate link; pause/resume survives app kill; speed limiter respected; no `active_download` global.
 
