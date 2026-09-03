@@ -190,8 +190,24 @@ class DownloadService:
         return final_path
 
     def convert_to_mp3(self, source: Path, bitrate: str = "192k") -> Path:
-        """Convert a video/audio file to MP3."""
+        """Convert a video/audio file to MP3 with passthrough check (1.5)."""
         target = source.with_suffix(".mp3")
+        # Passthrough: if already mp3, just copy (avoid double transcode)
+        if source.suffix.lower() == ".mp3" and source.resolve() != target.resolve():
+            # Use atomic dedup for target
+            from ..utils import move_to_final_location
+
+            # Copy then move atomically to handle cross-device
+            tmp_copy = target.with_suffix(".tmp.mp3")
+            shutil.copy2(source, tmp_copy)
+            # If source and target are same file, just return
+            if source.resolve() == target.resolve():
+                tmp_copy.unlink(missing_ok=True)
+                self.event_bus.publish("conversion.completed", str(target))
+                return target
+            final = move_to_final_location(tmp_copy, target.parent)
+            self.event_bus.publish("conversion.completed", str(final))
+            return final
         args = [
             "-y",
             "-i",
