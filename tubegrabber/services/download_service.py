@@ -28,6 +28,7 @@ class DownloadService:
         output_dir: Path,
         logger=None,
         temp_base: Optional[Path] = None,
+        speed_limit_kbps: int = 0,
     ) -> None:
         self.ytdlp = ytdlp
         self.ffmpeg = ffmpeg
@@ -35,7 +36,19 @@ class DownloadService:
         self.output_dir = output_dir
         self.logger = logger
         self.temp_base = temp_base or (output_dir / "temp")
+        self.speed_limit_kbps = speed_limit_kbps  # 0 = unlimited, Phase 1.4
         self.cancelled = False
+
+    def set_speed_limit(self, kbps: int) -> None:
+        """Update per-job speed limit (KB/s), 0 = unlimited."""
+        self.speed_limit_kbps = max(0, kbps)
+
+    def _get_speed_opts(self) -> Dict[str, Any]:
+        """Return yt-dlp ratelimit opts if limit set."""
+        if self.speed_limit_kbps > 0:
+            bps = self.speed_limit_kbps * 1024
+            return {"ratelimit": bps, "throttledratelimit": bps}
+        return {}
 
     def cancel(self) -> None:
         self.cancelled = True
@@ -107,6 +120,7 @@ class DownloadService:
             "overwrites": False,  # atomic dedup via move_to_final_location
             "nooverwrites": True,
         }
+        opts.update(self._get_speed_opts())  # 1.4: ratelimit
 
         self.ytdlp.extract_info(
             url, download=True, progress_hook=self._progress_hook, **opts
@@ -159,6 +173,7 @@ class DownloadService:
         }
         # Remove None options
         opts = {k: v for k, v in opts.items() if v is not None}
+        opts.update(self._get_speed_opts())  # 1.4: ratelimit
 
         self.ytdlp.extract_info(
             url, download=True, progress_hook=self._progress_hook, **opts
@@ -250,6 +265,7 @@ class DownloadService:
         if postprocessors:
             opts["postprocessors"] = postprocessors
             opts["postprocessor_args"] = post_args
+        opts.update(self._get_speed_opts())  # 1.4: ratelimit
 
         # Execute download — keep .part on cancel/failure for resume (1.3)
         self.event_bus.publish("download.playlist.start", url)

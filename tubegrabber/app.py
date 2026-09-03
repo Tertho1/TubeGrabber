@@ -80,6 +80,7 @@ class TubeGrabberApp:
             Path(self.download_dir.get()),
             logger=self.logger,
             temp_base=Path(self.temp_dir.get()),
+            speed_limit_kbps=self.config.settings.speed_limit_kbps,
         )
         self.search_service = SearchService(
             self.ytdlp_adapter, self.event_bus, logger=self.logger
