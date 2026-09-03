@@ -1,7 +1,9 @@
 """Unit tests for DownloadQueue (Phase 1.2)."""
+
 import time
-from tubegrabber.services.queue_service import DownloadQueue, JobStatus
+
 from tubegrabber.events import EventBus
+from tubegrabber.services.queue_service import DownloadQueue, JobStatus
 
 
 def test_queue_submit_and_complete():

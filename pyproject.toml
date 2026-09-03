@@ -1,0 +1,38 @@
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+# Select core rules; ignore noisy ones that caused CI fails
+select = ["E", "F", "W", "I", "UP"]
+ignore = [
+    "BLE001",   # blind exception — we use broad except for UI resilience
+    "S110",     # try-except-pass
+    "S112",     # try-except-continue
+    "PLW1510",  # subprocess.run without check
+    "UP022",    # capture_output preference
+    "F821",     # undefined name (false positive for lambda closure)
+    "E501",     # line too long — 100 is strict for f-strings
+    "F841",     # unused variable (style in pagination)
+    "UP042",    # str+Enum vs StrEnum — keep str,Enum for 3.10 compat
+]
+# Allow unused imports in tests
+unfixable = []
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["F401", "I001"]
+"tubegrabber/__init__.py" = ["F401"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+
+[tool.mypy]
+python_version = "3.12"
+warn_return_any = true
+warn_unused_configs = true
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]

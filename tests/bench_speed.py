@@ -4,11 +4,11 @@ Measures segmented fragments + concurrent queue throughput.
 Usage: py -3 tests/bench_speed.py --url https://speed.hetzner.de/100MB.bin
 Requires: yt-dlp, httpx (or aria2c)
 """
+
 from __future__ import annotations
 
-import time
 import argparse
-from pathlib import Path
+import time
 
 
 def bench_generic_http(url: str, chunks: int = 8) -> float:
@@ -22,7 +22,6 @@ def bench_generic_http(url: str, chunks: int = 8) -> float:
 
 def bench_ytdlp_concurrent(urls: list[str], max_workers: int = 3) -> dict:
     """Benchmark concurrent queue with N workers."""
-    from tubegrabber.services.queue_service import DownloadQueue
 
     # Mock: not hitting network in CI
     return {"urls": len(urls), "workers": max_workers, "note": "run with real URLs locally"}
@@ -31,7 +30,9 @@ def bench_ytdlp_concurrent(urls: list[str], max_workers: int = 3) -> dict:
 if __name__ == "__main__":
     ap = argparse.ArgumentParser(description="TubeGrabber bench vs IDM")
     ap.add_argument("--url", default="https://speed.hetzner.de/100MB.bin")
-    ap.add_argument("--idm-baseline", type=float, default=22.0, help="IDM 1GB/100Mbps baseline seconds")
+    ap.add_argument(
+        "--idm-baseline", type=float, default=22.0, help="IDM 1GB/100Mbps baseline seconds"
+    )
     args = ap.parse_args()
     print(f"TubeGrabber bench — target ≤20s for 1GB/100Mbps (IDM ~{args.idm_baseline}s)")
     print(f"URL: {args.url}")

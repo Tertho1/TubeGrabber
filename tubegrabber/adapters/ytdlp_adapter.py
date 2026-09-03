@@ -2,12 +2,14 @@
 
 from __future__ import annotations
 
-from typing import Any, Callable, Dict, Optional
+from collections.abc import Callable
+from typing import Any
+
 import yt_dlp
 
 from ..errors import ExtractionError
 
-ProgressHook = Callable[[Dict[str, Any]], None]
+ProgressHook = Callable[[dict[str, Any]], None]
 
 
 class YtDlpAdapter:
@@ -15,12 +17,12 @@ class YtDlpAdapter:
         self.logger = logger
 
     def _make_opts(
-        self, progress_hook: Optional[ProgressHook] = None, **overrides: Any
-    ) -> Dict[str, Any]:
+        self, progress_hook: ProgressHook | None = None, **overrides: Any
+    ) -> dict[str, Any]:
         hooks = []
         if progress_hook:
             hooks.append(progress_hook)
-        opts: Dict[str, Any] = {
+        opts: dict[str, Any] = {
             "ignoreerrors": True,
             "quiet": True,
             "no_warnings": True,
@@ -33,9 +35,9 @@ class YtDlpAdapter:
         self,
         url: str,
         download: bool = False,
-        progress_hook: Optional[ProgressHook] = None,
+        progress_hook: ProgressHook | None = None,
         **overrides: Any,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         opts = self._make_opts(progress_hook=progress_hook, **overrides)
         try:
             with yt_dlp.YoutubeDL(opts) as ydl:
@@ -48,9 +50,7 @@ class YtDlpAdapter:
                 self.logger.exception("yt_dlp extraction failed for %s", url)
             raise ExtractionError(str(e)) from e
 
-    def build_filename(
-        self, info: Dict[str, Any], template: str = "%(title)s.%(ext)s"
-    ) -> str:
+    def build_filename(self, info: dict[str, Any], template: str = "%(title)s.%(ext)s") -> str:
         with yt_dlp.YoutubeDL({"quiet": True}) as ydl:
             name = ydl.prepare_filename(info)
             # Only adjust known yt-dlp webm passthrough quirk: keep extension

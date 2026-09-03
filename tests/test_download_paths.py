@@ -1,11 +1,12 @@
 """Unit tests for atomic moves, path isolation, and format checks (D1, D2, D4, D8)."""
 
 from pathlib import Path
+
 from tubegrabber.utils import (
-    sanitize_filename,
+    format_has_audio,
     get_unique_path,
     move_to_final_location,
-    format_has_audio,
+    sanitize_filename,
 )
 
 

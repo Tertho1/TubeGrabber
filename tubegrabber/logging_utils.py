@@ -22,9 +22,7 @@ def setup_logging(log_dir: Path) -> logging.Logger:
     file_handler = RotatingFileHandler(
         log_path, maxBytes=1_000_000, backupCount=3, encoding="utf-8"
     )
-    file_handler.setFormatter(
-        logging.Formatter("%(asctime)s [%(levelname)s] %(message)s")
-    )
+    file_handler.setFormatter(logging.Formatter("%(asctime)s [%(levelname)s] %(message)s"))
 
     stream_handler = logging.StreamHandler()
     stream_handler.setFormatter(logging.Formatter("%(levelname)s: %(message)s"))

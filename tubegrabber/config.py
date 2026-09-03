@@ -7,11 +7,11 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any
 
+from platformdirs import user_cache_dir, user_config_dir, user_data_dir
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
-from platformdirs import user_config_dir, user_data_dir, user_cache_dir
 
 
 class TubeGrabberSettings(BaseSettings):
@@ -24,10 +24,8 @@ class TubeGrabberSettings(BaseSettings):
     )
 
     # Paths
-    download_dir: Path = Field(
-        default_factory=lambda: Path.home() / "Downloads" / "TubeGrabber"
-    )
-    temp_dir: Optional[Path] = None  # Auto-computed if None
+    download_dir: Path = Field(default_factory=lambda: Path.home() / "Downloads" / "TubeGrabber")
+    temp_dir: Path | None = None  # Auto-computed if None
 
     # Performance — Phase 1.1: tuned for speed vs IP ban
     max_concurrent_downloads: int = Field(default=3, ge=1, le=10)
@@ -61,7 +59,7 @@ class TubeGrabberSettings(BaseSettings):
 class ConfigManager:
     """Manages persistent configuration with backward compatibility."""
 
-    def __init__(self, config_path: Optional[Path] = None):
+    def __init__(self, config_path: Path | None = None):
         """Initialize config manager.
 
         Args:
@@ -79,7 +77,7 @@ class ConfigManager:
 
         self.settings = self._load()
 
-    def _migrate_legacy(self) -> Dict[str, Any]:
+    def _migrate_legacy(self) -> dict[str, Any]:
         """Migrate from legacy ~/.tubegrabber/settings.json if it exists."""
         if not self.legacy_config.exists():
             return {}
@@ -131,8 +129,7 @@ class ConfigManager:
         data = self.settings.model_dump(mode="json")
 
         self.config_file.write_text(
-            json.dumps(data, indent=2, ensure_ascii=False),
-            encoding="utf-8"
+            json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8"
         )
 
     def get(self, key: str, default: Any = None) -> Any:

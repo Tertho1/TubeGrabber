@@ -3,19 +3,21 @@
 Replaces app.py:53 active_download:bool with ThreadPoolExecutor 3-5 workers.
 Persists minimal job state; SQLite persistence added in 1.3.
 """
+
 from __future__ import annotations
 
-import uuid
-import time
-import threading
 import concurrent.futures
+import threading
+import time
+import uuid
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
-from typing import Dict, Optional, Callable, Any
+from typing import Any
 
-from ..events import EventBus
 from ..errors import DownloadCancelled
+from ..events import EventBus
 
 
 class JobStatus(str, Enum):
@@ -35,11 +37,11 @@ class Job:
     progress: float = 0.0  # 0-100
     speed: float = 0.0
     eta: int = 0
-    output_path: Optional[Path] = None
-    error: Optional[str] = None
+    output_path: Path | None = None
+    error: str | None = None
     created_at: float = field(default_factory=time.time)
-    started_at: Optional[float] = None
-    finished_at: Optional[float] = None
+    started_at: float | None = None
+    finished_at: float | None = None
 
 
 class DownloadQueue:
@@ -48,7 +50,7 @@ class DownloadQueue:
     def __init__(
         self,
         max_workers: int = 3,
-        event_bus: Optional[EventBus] = None,
+        event_bus: EventBus | None = None,
         logger=None,
     ) -> None:
         self.max_workers = max(1, min(max_workers, 10))
@@ -57,8 +59,8 @@ class DownloadQueue:
         self._executor = concurrent.futures.ThreadPoolExecutor(
             max_workers=self.max_workers, thread_name_prefix="tg-queue"
         )
-        self._jobs: Dict[str, Job] = {}
-        self._futures: Dict[str, concurrent.futures.Future] = {}
+        self._jobs: dict[str, Job] = {}
+        self._futures: dict[str, concurrent.futures.Future] = {}
         self._lock = threading.Lock()
         self._active_count = 0
 
@@ -154,11 +156,11 @@ class DownloadQueue:
     def has_active(self) -> bool:
         return self.active_count > 0
 
-    def get_jobs(self) -> Dict[str, Job]:
+    def get_jobs(self) -> dict[str, Job]:
         with self._lock:
             return dict(self._jobs)
 
-    def get_job(self, job_id: str) -> Optional[Job]:
+    def get_job(self, job_id: str) -> Job | None:
         with self._lock:
             return self._jobs.get(job_id)
 

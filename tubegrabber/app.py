@@ -4,33 +4,32 @@ Now integrates modular services, adapters, config manager, logging, and event bu
 """
 
 import os
-import json
 import threading
 import time
-from pathlib import Path
 import tkinter as tk
-from tkinter import ttk, messagebox, filedialog
+from pathlib import Path
+from tkinter import filedialog, messagebox, ttk
+
 from yt_dlp import YoutubeDL
 
-from .environment import setup_environment, get_startup_info
-from .utils import format_has_audio
+from .adapters.ffmpeg_adapter import FFmpegAdapter
+from .adapters.ytdlp_adapter import YtDlpAdapter
+from .config import ConfigManager, get_config_dir
+from .environment import setup_environment
+from .errors import (
+    ConversionError,
+    DownloadCancelled,
+    ExtractionError,
+    TubeGrabberError,
+)
+from .events import EventBus
+from .logging_utils import setup_logging
 
 # Conversion handled via DownloadService
-from .models import VideoItem, PlaylistItem
-from .errors import (
-    TubeGrabberError,
-    DownloadCancelled,
-    ConversionError,
-    ExtractionError,
-)
-from .config import ConfigManager, get_config_dir
-from .logging_utils import setup_logging
-from .events import EventBus
-from .adapters.ytdlp_adapter import YtDlpAdapter
-from .adapters.ffmpeg_adapter import FFmpegAdapter
+from .models import PlaylistItem, VideoItem
 from .services.download_service import DownloadService
-from .services.search_service import SearchService
 from .services.queue_service import DownloadQueue
+from .services.search_service import SearchService
 
 
 class TubeGrabberApp:
@@ -82,9 +81,7 @@ class TubeGrabberApp:
             temp_base=Path(self.temp_dir.get()),
             speed_limit_kbps=self.config.settings.speed_limit_kbps,
         )
-        self.search_service = SearchService(
-            self.ytdlp_adapter, self.event_bus, logger=self.logger
-        )
+        self.search_service = SearchService(self.ytdlp_adapter, self.event_bus, logger=self.logger)
 
         # Search state (replaces legacy SearchManager)
         self.search_results = []  # list[VideoItem|PlaylistItem]
@@ -129,7 +126,6 @@ class TubeGrabberApp:
         """Load settings from ConfigManager (already loaded in __init__)."""
         # Settings already loaded during ConfigManager init
         # Just ensure UI reflects them (already done in __init__)
-        pass
 
     def save_settings(self):
         """Save current UI state back to config."""
@@ -194,9 +190,7 @@ class TubeGrabberApp:
         self.convert_video_frame = ttk.Frame(self.input_frame)
         self.search_video_frame = ttk.Frame(self.input_frame)
         # Single video
-        ttk.Label(self.single_video_frame, text="Video URL:").grid(
-            row=0, column=0, sticky=tk.W
-        )
+        ttk.Label(self.single_video_frame, text="Video URL:").grid(row=0, column=0, sticky=tk.W)
         self.video_url_entry = ttk.Entry(self.single_video_frame, width=50)
         self.video_url_entry.grid(row=0, column=1, padx=5, pady=5)
         ttk.Button(
@@ -204,40 +198,28 @@ class TubeGrabberApp:
             text="Get Formats",
             command=self.fetch_video_formats,
         ).grid(row=0, column=2, padx=5)
-        ttk.Label(self.single_video_frame, text="Format:").grid(
-            row=1, column=0, sticky=tk.W
-        )
-        self.format_combobox = ttk.Combobox(
-            self.single_video_frame, state="readonly", width=50
-        )
+        ttk.Label(self.single_video_frame, text="Format:").grid(row=1, column=0, sticky=tk.W)
+        self.format_combobox = ttk.Combobox(self.single_video_frame, state="readonly", width=50)
         self.format_combobox.grid(row=1, column=1, padx=5, pady=5)
         ttk.Button(
             self.single_video_frame, text="Download", command=self.download_single_video
         ).grid(row=2, column=1, pady=10, sticky=tk.E)
         # Audio only
-        ttk.Label(self.audio_only_frame, text="Video URL:").grid(
-            row=0, column=0, sticky=tk.W
-        )
+        ttk.Label(self.audio_only_frame, text="Video URL:").grid(row=0, column=0, sticky=tk.W)
         self.audio_url_entry = ttk.Entry(self.audio_only_frame, width=50)
         self.audio_url_entry.grid(row=0, column=1, padx=5, pady=5)
-        ttk.Button(
-            self.audio_only_frame, text="Download Audio", command=self.download_audio
-        ).grid(row=1, column=1, pady=10, sticky=tk.E)
-        # Playlist
-        ttk.Label(self.playlist_frame, text="Playlist URL:").grid(
-            row=0, column=0, sticky=tk.W
+        ttk.Button(self.audio_only_frame, text="Download Audio", command=self.download_audio).grid(
+            row=1, column=1, pady=10, sticky=tk.E
         )
+        # Playlist
+        ttk.Label(self.playlist_frame, text="Playlist URL:").grid(row=0, column=0, sticky=tk.W)
         self.playlist_url_entry = ttk.Entry(self.playlist_frame, width=50)
         self.playlist_url_entry.grid(row=0, column=1, padx=5, pady=5)
-        ttk.Label(self.playlist_frame, text="Quality:").grid(
-            row=1, column=0, sticky=tk.W
-        )
+        ttk.Label(self.playlist_frame, text="Quality:").grid(row=1, column=0, sticky=tk.W)
         self.playlist_quality_combobox = ttk.Combobox(
             self.playlist_frame, values=["Best", "Medium", "Low"], state="readonly"
         )
-        self.playlist_quality_combobox.grid(
-            row=1, column=1, padx=5, pady=5, sticky=tk.W
-        )
+        self.playlist_quality_combobox.grid(row=1, column=1, padx=5, pady=5, sticky=tk.W)
         self.playlist_quality_combobox.set("Best")
         ttk.Button(
             self.playlist_frame,
@@ -256,24 +238,22 @@ class TubeGrabberApp:
             command=self.download_playlist_audio,
         ).grid(row=1, column=1, pady=10, sticky=tk.E)
         # Convert video
-        ttk.Label(self.convert_video_frame, text="Video File:").grid(
-            row=0, column=0, sticky=tk.W
-        )
+        ttk.Label(self.convert_video_frame, text="Video File:").grid(row=0, column=0, sticky=tk.W)
         self.video_file_entry = ttk.Entry(self.convert_video_frame, width=50)
         self.video_file_entry.grid(row=0, column=1, padx=5, pady=5)
-        ttk.Button(
-            self.convert_video_frame, text="Browse", command=self.browse_video_file
-        ).grid(row=0, column=2, padx=5)
-        ttk.Button(
-            self.convert_video_frame, text="Convert", command=self.convert_video
-        ).grid(row=1, column=1, pady=10, sticky=tk.E)
+        ttk.Button(self.convert_video_frame, text="Browse", command=self.browse_video_file).grid(
+            row=0, column=2, padx=5
+        )
+        ttk.Button(self.convert_video_frame, text="Convert", command=self.convert_video).grid(
+            row=1, column=1, pady=10, sticky=tk.E
+        )
         # Search
         sframe = ttk.Frame(self.search_video_frame)
         sframe.pack(fill=tk.X, pady=5)
         self.search_type = tk.StringVar(value="videos")
-        ttk.Radiobutton(
-            sframe, text="Videos", variable=self.search_type, value="videos"
-        ).grid(row=0, column=0, padx=5)
+        ttk.Radiobutton(sframe, text="Videos", variable=self.search_type, value="videos").grid(
+            row=0, column=0, padx=5
+        )
         ttk.Radiobutton(
             sframe, text="Playlists", variable=self.search_type, value="playlists"
         ).grid(row=0, column=1, padx=5)
@@ -281,9 +261,7 @@ class TubeGrabberApp:
         self.search_entry = ttk.Entry(sframe, width=40)
         self.search_entry.grid(row=0, column=3, padx=5)
         self.search_entry.bind("<Return>", lambda e: self.search_videos())
-        ttk.Button(sframe, text="Search", command=self.search_videos).grid(
-            row=0, column=4, padx=5
-        )
+        ttk.Button(sframe, text="Search", command=self.search_videos).grid(row=0, column=4, padx=5)
         self.results_container = ttk.LabelFrame(self.search_video_frame, text="Results")
         self.results_container.pack(fill=tk.BOTH, expand=True)
         self.results_frame = ttk.Frame(self.results_container)
@@ -325,9 +303,7 @@ class TubeGrabberApp:
     def create_menu(self):
         m = tk.Menu(self.root)
         file_m = tk.Menu(m, tearoff=0)
-        file_m.add_command(
-            label="Set Download Dir", command=self.select_download_directory
-        )
+        file_m.add_command(label="Set Download Dir", command=self.select_download_directory)
         file_m.add_command(label="Set Temp Dir", command=self.select_temp_directory)
         file_m.add_separator()
         file_m.add_command(label="Exit", command=self.root.quit)
@@ -379,9 +355,7 @@ class TubeGrabberApp:
         def worker():
             try:
                 info = self.ytdlp_adapter.extract_info(url, download=False)
-                formats = [
-                    f for f in info.get("formats", []) if f.get("vcodec") != "none"
-                ]
+                formats = [f for f in info.get("formats", []) if f.get("vcodec") != "none"]
 
                 def on_done():
                     if not formats:
@@ -391,7 +365,7 @@ class TubeGrabberApp:
                         return
                     self.video_formats = formats
                     self.format_combobox["values"] = [
-                        f"{f['format_id']}: {f.get('format_note','')} ({f.get('ext')}) - {f.get('resolution','N/A')}"
+                        f"{f['format_id']}: {f.get('format_note', '')} ({f.get('ext')}) - {f.get('resolution', 'N/A')}"
                         for f in formats
                     ]
                     self.format_combobox.current(0)
@@ -401,7 +375,7 @@ class TubeGrabberApp:
             except Exception as e:
                 self.logger.exception("Format fetch failed for %s", url)
 
-                def on_error():
+                def on_error(e=e):  # capture e for closure
                     messagebox.showerror("Error", f"Format fetch failed: {e}")
                     self.update_progress(text="Ready")
 
@@ -419,9 +393,7 @@ class TubeGrabberApp:
         except Exception:
             fmt_id = None
         # Phase 1.2: via queue (3-5 workers) instead of single thread
-        self.download_queue.submit(
-            lambda: self._video_thread(url, fmt_id), url=url, kind="video"
-        )
+        self.download_queue.submit(lambda: self._video_thread(url, fmt_id), url=url, kind="video")
 
     def _video_thread(self, url, fmt_id):
         try:
@@ -438,9 +410,7 @@ class TubeGrabberApp:
         url = self.audio_url_entry.get().strip()
         if not url:
             return
-        self.download_queue.submit(
-            lambda: self._audio_thread(url), url=url, kind="audio"
-        )
+        self.download_queue.submit(lambda: self._audio_thread(url), url=url, kind="audio")
 
     def _audio_thread(self, url):
         try:
@@ -478,9 +448,7 @@ class TubeGrabberApp:
         try:
             self._begin_download()
             self.update_progress(0, "Starting playlist...")
-            self.download_service.download_playlist(
-                url, quality=quality, audio_only=audio_only
-            )
+            self.download_service.download_playlist(url, quality=quality, audio_only=audio_only)
             self.root.after(0, self.update_progress, 100, "Playlist complete")
             messagebox.showinfo("Success", "Playlist finished")
         except Exception as e:
@@ -492,9 +460,7 @@ class TubeGrabberApp:
         path = self.video_file_entry.get().strip()
         if not path:
             return
-        self.download_queue.submit(
-            lambda: self._convert_thread(path), url=path, kind="convert"
-        )
+        self.download_queue.submit(lambda: self._convert_thread(path), url=path, kind="convert")
 
     def _convert_thread(self, path):
         try:
@@ -551,20 +517,20 @@ class TubeGrabberApp:
                 mins = item.duration // 60
                 secs = item.duration % 60
                 duration_text = f" | Duration: {mins}:{secs:02d}"
-            ttk.Label(
-                fr, text=title_prefix + item.title, font=("TkDefaultFont", 10, "bold")
-            ).pack(anchor=tk.W)
+            ttk.Label(fr, text=title_prefix + item.title, font=("TkDefaultFont", 10, "bold")).pack(
+                anchor=tk.W
+            )
             meta = f"By: {item.uploader}{duration_text}"
             ttk.Label(fr, text=meta).pack(anchor=tk.W)
             btnf = ttk.Frame(fr)
             btnf.pack(anchor=tk.W, pady=2)
             if isinstance(item, VideoItem):
-                ttk.Button(
-                    btnf, text="Video", command=lambda u=item.url: self._send_video(u)
-                ).pack(side=tk.LEFT, padx=2)
-                ttk.Button(
-                    btnf, text="Audio", command=lambda u=item.url: self._send_audio(u)
-                ).pack(side=tk.LEFT, padx=2)
+                ttk.Button(btnf, text="Video", command=lambda u=item.url: self._send_video(u)).pack(
+                    side=tk.LEFT, padx=2
+                )
+                ttk.Button(btnf, text="Audio", command=lambda u=item.url: self._send_audio(u)).pack(
+                    side=tk.LEFT, padx=2
+                )
             else:
                 ttk.Button(
                     btnf,
@@ -577,9 +543,7 @@ class TubeGrabberApp:
                     command=lambda u=item.url: self._send_playlist_audio(u),
                 ).pack(side=tk.LEFT, padx=2)
 
-    def update_pagination(
-        self, total_pages, current_page, total_results, start_idx, end_idx
-    ):
+    def update_pagination(self, total_pages, current_page, total_results, start_idx, end_idx):
         for w in self.page_buttons_frame.winfo_children():
             w.destroy()
 
@@ -614,11 +578,9 @@ class TubeGrabberApp:
                 ttk.Label(self.page_buttons_frame, text="...").pack(side=tk.LEFT)
                 make_btn(total_pages)
         self.prev_page_btn.config(state="normal" if current_page > 1 else "disabled")
-        self.next_page_btn.config(
-            state="normal" if current_page < total_pages else "disabled"
-        )
+        self.next_page_btn.config(state="normal" if current_page < total_pages else "disabled")
         self.search_status_label.config(
-            text=f"Showing {start_idx+1}-{min(end_idx,total_results)} of {total_results}"
+            text=f"Showing {start_idx + 1}-{min(end_idx, total_results)} of {total_results}"
         )
 
     def _goto_page(self, page):
@@ -628,8 +590,7 @@ class TubeGrabberApp:
     def next_page(self):
         total_pages = max(
             1,
-            (len(self.search_results) + self.results_per_page - 1)
-            // self.results_per_page,
+            (len(self.search_results) + self.results_per_page - 1) // self.results_per_page,
         )
         if self.current_page < total_pages:
             self.current_page += 1
@@ -646,13 +607,9 @@ class TubeGrabberApp:
         subset = self.search_results[start:end]
         self.display_search_results(subset)
         total = len(self.search_results)
-        total_pages = max(
-            1, (total + self.results_per_page - 1) // self.results_per_page
-        )
+        total_pages = max(1, (total + self.results_per_page - 1) // self.results_per_page)
         self.update_pagination(total_pages, self.current_page, total, start, end)
-        self.search_status_label.config(
-            text=f"Showing {start+1}-{min(end,total)} of {total}"
-        )
+        self.search_status_label.config(text=f"Showing {start + 1}-{min(end, total)} of {total}")
 
     def _send_video(self, url):
         self.current_option.set("single_video")
@@ -735,9 +692,9 @@ class TubeGrabberApp:
         ttk.Label(w, text="Max Retries:").grid(row=0, column=0, padx=5, pady=5)
         spin = ttk.Spinbox(w, from_=1, to=10, textvariable=self.max_retries)
         spin.grid(row=0, column=1, padx=5, pady=5)
-        ttk.Button(
-            w, text="Save", command=lambda: (self.save_settings(), w.destroy())
-        ).grid(row=1, columnspan=2, pady=5)
+        ttk.Button(w, text="Save", command=lambda: (self.save_settings(), w.destroy())).grid(
+            row=1, columnspan=2, pady=5
+        )
 
     def select_download_directory(self):
         d = filedialog.askdirectory(
@@ -749,9 +706,7 @@ class TubeGrabberApp:
             messagebox.showinfo("Info", f"Download directory set to:\n{d}")
 
     def select_temp_directory(self):
-        d = filedialog.askdirectory(
-            title="Select Temp Directory", initialdir=self.temp_dir.get()
-        )
+        d = filedialog.askdirectory(title="Select Temp Directory", initialdir=self.temp_dir.get())
         if d:
             self.temp_dir.set(d)
             os.makedirs(d, exist_ok=True)
@@ -774,17 +729,15 @@ class TubeGrabberApp:
     def _wire_event_subscriptions(self):
         def on_progress(payload):
             if payload.get("status") == "downloading":
-                total = payload.get("total_bytes") or payload.get(
-                    "total_bytes_estimate"
-                )
+                total = payload.get("total_bytes") or payload.get("total_bytes_estimate")
                 done = payload.get("downloaded_bytes", 0)
                 percent = (done / total) * 100 if total else 0
                 speed = payload.get("speed") or 0
                 eta = payload.get("eta") or 0
                 sp = (
-                    f"{speed/1024:.1f} KB/s"
+                    f"{speed / 1024:.1f} KB/s"
                     if speed < 1024 * 1024
-                    else f"{speed/(1024*1024):.2f} MB/s"
+                    else f"{speed / (1024 * 1024):.2f} MB/s"
                 )
                 et = time.strftime("%M:%S", time.gmtime(eta)) if eta else "--:--"
                 self.root.after(

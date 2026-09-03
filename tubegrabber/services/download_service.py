@@ -10,13 +10,13 @@ import os
 import shutil
 import uuid
 from pathlib import Path
-from typing import Dict, Any, Optional, List
+from typing import Any
 
-from ..events import EventBus
-from ..adapters.ytdlp_adapter import YtDlpAdapter
 from ..adapters.ffmpeg_adapter import FFmpegAdapter
+from ..adapters.ytdlp_adapter import YtDlpAdapter
 from ..errors import DownloadCancelled
-from ..utils import move_to_final_location, format_has_audio
+from ..events import EventBus
+from ..utils import format_has_audio, move_to_final_location
 
 
 class DownloadService:
@@ -27,7 +27,7 @@ class DownloadService:
         event_bus: EventBus,
         output_dir: Path,
         logger=None,
-        temp_base: Optional[Path] = None,
+        temp_base: Path | None = None,
         speed_limit_kbps: int = 0,
     ) -> None:
         self.ytdlp = ytdlp
@@ -43,7 +43,7 @@ class DownloadService:
         """Update per-job speed limit (KB/s), 0 = unlimited."""
         self.speed_limit_kbps = max(0, kbps)
 
-    def _get_speed_opts(self) -> Dict[str, Any]:
+    def _get_speed_opts(self) -> dict[str, Any]:
         """Return yt-dlp ratelimit opts if limit set."""
         if self.speed_limit_kbps > 0:
             bps = self.speed_limit_kbps * 1024
@@ -54,12 +54,12 @@ class DownloadService:
         self.cancelled = True
         self.event_bus.publish("download.cancelled")
 
-    def _progress_hook(self, data: Dict[str, Any]) -> None:
+    def _progress_hook(self, data: dict[str, Any]) -> None:
         if self.cancelled:
             raise DownloadCancelled("User cancelled")
         self.event_bus.publish("download.progress", data)
 
-    def _get_job_temp_dir(self, url: Optional[str] = None) -> Path:
+    def _get_job_temp_dir(self, url: str | None = None) -> Path:
         """Create per-job temp directory for isolated staging (D1).
 
         Phase 1.3: deterministic per-URL for resume (keeps .part), fallback to uuid.
@@ -122,9 +122,7 @@ class DownloadService:
         }
         opts.update(self._get_speed_opts())  # 1.4: ratelimit
 
-        self.ytdlp.extract_info(
-            url, download=True, progress_hook=self._progress_hook, **opts
-        )
+        self.ytdlp.extract_info(url, download=True, progress_hook=self._progress_hook, **opts)
 
         # Move from temp to final output with atomic dedup (D1, D8)
         temp_path = job_temp / filename
@@ -136,7 +134,7 @@ class DownloadService:
         self.event_bus.publish("download.completed", str(final_path))
         return final_path
 
-    def download_video(self, url: str, format_id: Optional[str] = None) -> Path:
+    def download_video(self, url: str, format_id: str | None = None) -> Path:
         """Download a video with per-job staging, merging audio if required.
 
         If a specific format_id is provided and it lacks audio, append bestaudio.
@@ -175,9 +173,7 @@ class DownloadService:
         opts = {k: v for k, v in opts.items() if v is not None}
         opts.update(self._get_speed_opts())  # 1.4: ratelimit
 
-        self.ytdlp.extract_info(
-            url, download=True, progress_hook=self._progress_hook, **opts
-        )
+        self.ytdlp.extract_info(url, download=True, progress_hook=self._progress_hook, **opts)
 
         # Move from temp to final output with atomic dedup (D1, D8)
         temp_path = job_temp / filename
@@ -228,7 +224,7 @@ class DownloadService:
     # ---------------- Playlist Downloads -----------------
     def download_playlist(
         self, url: str, quality: str = "best", audio_only: bool = False
-    ) -> List[Path]:
+    ) -> list[Path]:
         """Download a playlist as video or audio items with per-job staging.
 
         Returns list of final file paths.
@@ -256,10 +252,10 @@ class DownloadService:
             postprocessors = []
             post_args = []
 
-        def hook(d: Dict[str, Any]):
+        def hook(d: dict[str, Any]):
             self._progress_hook(d)
 
-        opts: Dict[str, Any] = {
+        opts: dict[str, Any] = {
             "format": fmt,
             "paths": {"home": str(job_temp)},  # Download to per-job temp (D1, D2)
             "outtmpl": {"default": "%(title)s.%(ext)s"},
@@ -297,7 +293,7 @@ class DownloadService:
             raise
 
         # Collect resulting files from job's temp dir (D2 fix: scope to job_temp)
-        final_files: List[Path] = []
+        final_files: list[Path] = []
         for entry in os.listdir(job_temp):
             temp_file = job_temp / entry
             if temp_file.is_file():

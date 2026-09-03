@@ -2,7 +2,8 @@
 
 import json
 from pathlib import Path
-from tubegrabber.config import ConfigManager, TubeGrabberSettings
+
+from tubegrabber.config import ConfigManager
 
 
 def test_default_settings(tmp_path: Path):
@@ -49,7 +50,7 @@ def test_legacy_migration(tmp_path: Path, monkeypatch):
         "download_dir": "D:/Custom/Downloads",
         "temp_dir": "D:/Custom/Temp",
         "dark_mode": True,
-        "max_retries": 5
+        "max_retries": 5,
     }
     legacy_file.write_text(json.dumps(legacy_data), encoding="utf-8")
 

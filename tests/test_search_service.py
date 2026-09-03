@@ -1,6 +1,7 @@
 """Unit tests for SearchService mocking YtDlpAdapter (D3)."""
 
 from unittest.mock import MagicMock
+
 from tubegrabber.events import EventBus
 from tubegrabber.services.search_service import SearchService
 

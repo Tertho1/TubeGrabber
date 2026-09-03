@@ -6,11 +6,10 @@ filename sanitization, and format inspection without network re-fetching (D4).
 
 from __future__ import annotations
 
-import os
 import re
 import shutil
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any
 
 
 def sanitize_filename(name: str, max_length: int = 255) -> str:
@@ -19,7 +18,7 @@ def sanitize_filename(name: str, max_length: int = 255) -> str:
     Removes Windows/Unix invalid characters: < > : " / \\ | ? *
     """
     # Replace illegal characters with underscore
-    clean = re.sub(r'[<>:"/\\|?*\x00-\x1f]', '_', name)
+    clean = re.sub(r'[<>:"/\\|?*\x00-\x1f]', "_", name)
     # Strip leading/trailing dots and whitespace
     clean = clean.strip(". ")
     if not clean:
@@ -29,7 +28,7 @@ def sanitize_filename(name: str, max_length: int = 255) -> str:
     if len(clean) > max_length:
         path = Path(clean)
         ext = path.suffix
-        stem = path.stem[:max_length - len(ext)]
+        stem = path.stem[: max_length - len(ext)]
         clean = f"{stem}{ext}"
 
     return clean
@@ -84,7 +83,7 @@ def get_quality_height(quality: str) -> int:
     return {"best": 4320, "medium": 720, "low": 480}.get(quality.lower(), 720)
 
 
-def format_has_audio(format_id: str, info: Optional[Dict[str, Any]] = None) -> bool:
+def format_has_audio(format_id: str, info: dict[str, Any] | None = None) -> bool:
     """Check if the specified format contains an audio codec from pre-fetched info dict.
 
     Fixes D4: Accepts already-fetched info dict to eliminate redundant network queries.

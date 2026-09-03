@@ -1,7 +1,6 @@
 """Domain models for TubeGrabber."""
 
 from dataclasses import dataclass
-from typing import Optional
 
 
 @dataclass(slots=True)
@@ -23,4 +22,4 @@ class PlaylistItem:
     uploader: str = "Unknown"
     thumbnail: str = ""
     description: str = ""
-    count: Optional[int] = None  # number of videos if known
+    count: int | None = None  # number of videos if known
