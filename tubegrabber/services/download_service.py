@@ -67,7 +67,9 @@ class DownloadService:
         if url:
             import hashlib
 
-            job_id = hashlib.md5(url.encode("utf-8")).hexdigest()[:12]
+            job_id = hashlib.md5(
+                url.encode("utf-8"), usedforsecurity=False
+            ).hexdigest()[:12]
         else:
             job_id = uuid.uuid4().hex[:8]
         job_temp = self.temp_base / job_id
